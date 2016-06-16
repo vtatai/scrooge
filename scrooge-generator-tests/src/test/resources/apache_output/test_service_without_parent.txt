@@ -36,6 +36,11 @@ import com.twitter.finagle.thrift.DeserializeCtx;
 import com.twitter.finagle.thrift.ThriftClientRequest;
 
 public class TestService {
+  public interface FutureIface extends ThriftService {
+    Future<Void> test_void_endpoint(TestRequest request);
+    Future<TestResult> test_endpoint_without_exception(TestRequest request);
+  }
+
   public interface Iface {
     public void test_void_endpoint(TestRequest request) throws TestException, TException;
     public TestResult test_endpoint_without_exception(TestRequest request) throws TException;

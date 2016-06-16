@@ -13,6 +13,12 @@ import com.twitter.finagle.thrift.DeserializeCtx;
 import com.twitter.finagle.thrift.ThriftClientRequest;
 
 public class {{name}} {
+  public interface FutureIface extends ThriftService {
+    {{#functions}}
+    Future<{{{return_type.type_name_in_container}}}> {{name}}({{{argument_list_with_types}}});
+    {{/functions}}
+  }
+
   public interface Iface{{#extends_iface}} extends {{name}}.Iface{{/extends_iface}} {
     {{#functions}}
     public {{{return_type.type_name}}} {{name}}({{{argument_list_with_types}}}) throws {{exceptions_string}}TException;
