@@ -33,6 +33,25 @@ public class {{name}} {
     }
   }
 
+  public static class ServiceIface extends BaseServiceIface {
+    public ServiceIface(
+      {{{base_service_params}}}
+    ) {
+      {{#functions}}
+      this.{{name}} = {{name}};
+      {{/functions}}
+    }
+
+    @Override
+    public ThriftService toThriftService() {
+      return new MethodIface(this);
+    }
+  }
+
+  {{#functions}}
+  private static final {{method.className}} {{method.name}}Method = new {{method.className}}();
+  {{/functions}}
+
   public interface Iface{{#extends_iface}} extends {{name}}.Iface{{/extends_iface}} {
     {{#functions}}
     public {{{return_type.type_name}}} {{name}}({{{argument_list_with_types}}}) throws {{exceptions_string}}TException;
