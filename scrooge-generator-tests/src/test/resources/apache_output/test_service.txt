@@ -69,6 +69,41 @@ public class TestService {
   private static final TestEndpoint testEndpointMethod = new TestEndpoint();
   private static final TestOneway testOnewayMethod = new TestOneway();
 
+  public static class MethodIface implements FutureIface {
+    private com.twitter.finagle.Service<TestEndpoint.Args, TestEndpoint.Result> testEndpointService;
+    private com.twitter.finagle.Service<TestOneway.Args, TestOneway.Result> testOnewayService;
+
+    @SuppressWarnings("unchecked")
+    public MethodIface(final BaseServiceIface serviceIface) {
+      Filter testEndpointFilter = ThriftServiceIface.resultFilter(testEndpointMethod);
+      testEndpointService = testEndpointFilter.andThen(new com.twitter.finagle.Service<TestEndpoint.Args, TestEndpoint.Result>() {
+        // This service is only needed to adapt the types because of Scala types
+        @Override
+        public Future<TestEndpoint.Result> apply(TestEndpoint.Args request) {
+          return serviceIface.testEndpoint.apply(request);
+        }
+      });
+      Filter testOnewayFilter = ThriftServiceIface.resultFilter(testOnewayMethod);
+      testOnewayService = testOnewayFilter.andThen(new com.twitter.finagle.Service<TestOneway.Args, TestOneway.Result>() {
+        // This service is only needed to adapt the types because of Scala types
+        @Override
+        public Future<TestOneway.Result> apply(TestOneway.Args request) {
+          return serviceIface.testOneway.apply(request);
+        }
+      });
+    }
+
+    @Override
+    public Future<Boolean> testEndpoint(TestRequest request) {
+      return testEndpointService.apply(new TestEndpoint.Args(request));
+    }
+
+    @Override
+    public Future<Void> testOneway(TestRequest request) {
+      return testOnewayService.apply(new TestOneway.Args(request));
+    }
+  }
+
   public interface Iface extends TestServiceParent.Iface {
     public boolean test_endpoint(TestRequest request) throws TestException, TException;
     public void test_oneway(TestRequest request) throws TException;

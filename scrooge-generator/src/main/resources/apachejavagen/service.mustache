@@ -52,6 +52,33 @@ public class {{name}} {
   private static final {{method.className}} {{method.name}}Method = new {{method.className}}();
   {{/functions}}
 
+  public static class MethodIface implements FutureIface {
+    {{#functions}}
+    private com.twitter.finagle.Service<{{method.arg}}, {{method.result}}> {{method.name}}Service;
+    {{/functions}}
+
+    @SuppressWarnings("unchecked")
+    public MethodIface(final BaseServiceIface serviceIface) {
+      {{#functions}}
+      Filter {{method.name}}Filter = ThriftServiceIface.resultFilter({{method.name}}Method);
+      {{method.name}}Service = {{method.name}}Filter.andThen(new com.twitter.finagle.Service<{{method.arg}}, {{method.result}}>() {
+        // This service is only needed to adapt the types because of Scala types
+        @Override
+        public Future<{{method.result}}> apply({{method.arg}} request) {
+          return serviceIface.{{method.name}}.apply(request);
+        }
+      });
+      {{/functions}}
+    }
+
+    {{#functions}}
+    @Override
+    public Future<{{return_type.type_name_in_container}}> {{method.name}}({{argument_list_with_types}}) {
+      return {{method.name}}Service.apply(new {{method.arg}}({{argument_list}}));
+    }
+    {{/functions}}
+  }
+
   public interface Iface{{#extends_iface}} extends {{name}}.Iface{{/extends_iface}} {
     {{#functions}}
     public {{{return_type.type_name}}} {{name}}({{{argument_list_with_types}}}) throws {{exceptions_string}}TException;
