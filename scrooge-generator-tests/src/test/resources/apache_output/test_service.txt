@@ -41,6 +41,17 @@ public class TestService {
     Future<Void> test_oneway(TestRequest request);
   }
 
+  public static abstract class BaseServiceIface implements ToThriftService {
+    private final com.twitter.finagle.Service<TestEndpoint.Args, TestEndpoint.Result> test_endpoint;
+    private final com.twitter.finagle.Service<TestOneway.Args, TestOneway.Result> test_oneway;
+    private BaseServiceIface(
+      com.twitter.finagle.Service<TestEndpoint.Args, TestEndpoint.Result> test_endpoint, com.twitter.finagle.Service<TestOneway.Args, TestOneway.Result> test_oneway
+    ) {
+      this.test_endpoint = test_endpoint;
+      this.test_oneway = test_oneway;
+    }
+  }
+
   public interface Iface extends TestServiceParent.Iface {
     public boolean test_endpoint(TestRequest request) throws TestException, TException;
     public void test_oneway(TestRequest request) throws TException;

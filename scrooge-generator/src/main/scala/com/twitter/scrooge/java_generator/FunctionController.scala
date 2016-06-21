@@ -43,6 +43,11 @@ class FunctionController(function: TFunction, generator: ApacheJavaGenerator, ns
   val is_oneway = function.funcType == OnewayVoid
   val is_oneway_or_void = is_oneway || return_type.is_void
 
+  val methodClassName = Identifier.toTitleCase(name)
+  val method = Map("arg" -> (methodClassName + ".Args"), "result" -> (methodClassName + ".Result"))
+
+  val baseServiceParam = s"com.twitter.finagle.Service<${method("arg")}, ${method("result")}> $name"
+
   def i_if_has_exceptions = newHelper { input =>
     if (exceptions.size > 0) indent(input, 2, false) else input
   }

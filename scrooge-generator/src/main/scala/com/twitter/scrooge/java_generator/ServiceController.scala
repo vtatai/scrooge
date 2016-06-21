@@ -10,4 +10,5 @@ class ServiceController(service: Service, generator: ApacheJavaGenerator, ns: Op
     case None => false
   }
   val functions = service.functions map { f => new FunctionController(f, generator, ns) }
+  val base_service_params = functions map { f => f.baseServiceParam } mkString ", "
 }

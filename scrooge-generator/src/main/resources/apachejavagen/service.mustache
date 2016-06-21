@@ -19,6 +19,20 @@ public class {{name}} {
     {{/functions}}
   }
 
+  public static abstract class BaseServiceIface implements ToThriftService {
+    {{#functions}}
+    private final com.twitter.finagle.Service<{{method.arg}}, {{method.result}}> {{name}};
+    {{/functions}}
+
+    private BaseServiceIface(
+      {{{base_service_params}}}
+    ) {
+      {{#functions}}
+      this.{{name}} = {{name}};
+      {{/functions}}
+    }
+  }
+
   public interface Iface{{#extends_iface}} extends {{name}}.Iface{{/extends_iface}} {
     {{#functions}}
     public {{{return_type.type_name}}} {{name}}({{{argument_list_with_types}}}) throws {{exceptions_string}}TException;
