@@ -9,6 +9,7 @@ class ServiceController(service: Service, generator: ApacheJavaGenerator, ns: Op
     case Some(parent) => Map("name" -> generator.qualifyNamedType(parent.sid, parent.filename).fullName)
     case None => false
   }
+  def serviceName = name
   val functions = service.functions map { f => new FunctionController(f, generator, ns) }
   val base_service_params = functions map { f => f.baseServiceParam } mkString ", "
 }

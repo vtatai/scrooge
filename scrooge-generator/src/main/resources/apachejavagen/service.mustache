@@ -48,10 +48,6 @@ public class {{name}} {
     }
   }
 
-  {{#functions}}
-  private static final {{method.className}} {{method.name}}Method = new {{method.className}}();
-  {{/functions}}
-
   public static class MethodIface implements FutureIface {
     {{#functions}}
     private com.twitter.finagle.Service<{{method.arg}}, {{method.result}}> {{method.name}}Service;
@@ -78,6 +74,34 @@ public class {{name}} {
     }
     {{/functions}}
   }
+
+  {{#functions}}
+  private static final {{method.className}} {{method.name}}Method = new {{method.className}}();
+
+  public static class {{method.className}} implements ThriftMethod {
+    public final static ArgsCodec argsCodec = new ArgsCodec();
+    public final static ResultCodec resultCodec = new ResultCodec();
+    private final static String name = "{{method.name}}";
+    private final static String serviceName = "{{serviceName}}";
+
+    public static class ArgsCodec extends ThrfitStructCodec3<Args> {
+    }
+
+    public static class Args implements ThriftStruct {
+      {{#fields}}
+      private final {{field_type.type_name}} {{name}};
+      {{/fields}}
+
+      public Args(
+        {{argument_list_with_types}}
+      ) {
+        {{#fields}}
+        this.{{name}} = {{name}};
+        {{/fields}}
+      }
+    }
+  }
+  {{/functions}}
 
   public interface Iface{{#extends_iface}} extends {{name}}.Iface{{/extends_iface}} {
     {{#functions}}

@@ -66,9 +66,6 @@ public class TestService {
     }
   }
 
-  private static final TestEndpoint testEndpointMethod = new TestEndpoint();
-  private static final TestOneway testOnewayMethod = new TestOneway();
-
   public static class MethodIface implements FutureIface {
     private com.twitter.finagle.Service<TestEndpoint.Args, TestEndpoint.Result> testEndpointService;
     private com.twitter.finagle.Service<TestOneway.Args, TestOneway.Result> testOnewayService;
@@ -101,6 +98,50 @@ public class TestService {
     @Override
     public Future<Void> testOneway(TestRequest request) {
       return testOnewayService.apply(new TestOneway.Args(request));
+    }
+  }
+
+  private static final TestEndpoint testEndpointMethod = new TestEndpoint();
+
+  public static class TestEndpoint implements ThriftMethod {
+    public final static ArgsCodec argsCodec = new ArgsCodec();
+    public final static ResultCodec resultCodec = new ResultCodec();
+    private final static String name = "testEndpoint";
+    private final static String serviceName = "TestService";
+
+    public static class ArgsCodec extends ThrfitStructCodec3<Args> {
+    }
+
+    public static class Args implements ThriftStruct {
+      private final TestRequest request;
+
+      public Args(
+        TestRequest request
+      ) {
+        this.request = request;
+      }
+    }
+  }
+
+  private static final TestOneway testOnewayMethod = new TestOneway();
+
+  public static class TestOneway implements ThriftMethod {
+    public final static ArgsCodec argsCodec = new ArgsCodec();
+    public final static ResultCodec resultCodec = new ResultCodec();
+    private final static String name = "testOneway";
+    private final static String serviceName = "TestService";
+
+    public static class ArgsCodec extends ThrfitStructCodec3<Args> {
+    }
+
+    public static class Args implements ThriftStruct {
+      private final TestRequest request;
+
+      public Args(
+        TestRequest request
+      ) {
+        this.request = request;
+      }
     }
   }
 
