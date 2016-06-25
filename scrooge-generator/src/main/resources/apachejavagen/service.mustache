@@ -85,6 +85,17 @@ public class {{name}} {
     private final static String serviceName = "{{serviceName}}";
 
     public static class ArgsCodec extends ThrfitStructCodec3<Args> {
+      @Override
+      public void encode(Args args, TProtocol oprot) throws TException {
+        args.write(oprot);
+      }
+
+      @Override
+      public Args decode(TProtocol iprot) throws TException {
+        {{name}}_args {{name}}_args = new {{name}}_args();
+        {{name}}_args.read(iprot);
+        return new Args({{name}}_args.getRequest());
+      }
     }
 
     public static class Args implements ThriftStruct {
@@ -98,6 +109,63 @@ public class {{name}} {
         {{#fields}}
         this.{{name}} = {{name}};
         {{/fields}}
+      }
+    }
+
+    public static class ResultCodec extends ThriftStructCodec3<Result> {
+      @Override
+      public Result decode(TProtocol iprot) throws TException {
+        {{name}}_result result = new {{name}}_result();
+        {{name}}_result.read(iprot);
+        return new Result({{name}}_result.getSuccess());
+      }
+
+      @Override
+      public void encode(Result result, TProtocol oprot) throws TException {
+        result.write(oprot);
+      }
+    }
+
+    public static class Result implements ThriftStruct, ThriftResponse {
+      {{#return_type}}
+      {{^is_oneway_void}}
+      private final Option<{{type_name_in_container}}> result;
+
+      public Result({{type_name}} result) {
+        this.result = Option.<{{type_name_in_container}}>apply(result);
+      }
+
+      @Override
+      public void write(TProtocol oprot) throws TException {
+        new {{name}}_result().setSuccess(result.get()).write(oprot);
+      }
+
+      @Override
+      public Option successField() {
+        return success;
+      }
+      {{/is_oneway_void}}
+      {{#is_oneway_void}}
+      @Override
+      public void write(TProtocol oprot) throws TException {
+        new {{name}}_result().write(oprot);
+      }
+      {{/is_oneway_void}}
+      {{/return_type}}
+
+      @Override
+      public Iterable<Option<ThriftException>> exceptionFields() {
+        return WrapAsScala$.MODULE$.asScalaBuffer(new ArrayList<>());
+      }
+
+      @Override
+      public Option<ThriftException> firstException() {
+        for (Option<ThriftException> e : WrapAsJava$.MODULE$.asJavaCollection(exceptionFields())) {
+          if (e.isDefined()) {
+            return e;
+          }
+        }
+        return Option.<ThriftException>apply(null);
       }
     }
   }

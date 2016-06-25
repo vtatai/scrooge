@@ -110,6 +110,17 @@ public class TestService {
     private final static String serviceName = "TestService";
 
     public static class ArgsCodec extends ThrfitStructCodec3<Args> {
+      @Override
+      public void encode(Args args, TProtocol oprot) throws TException {
+        args.write(oprot);
+      }
+
+      @Override
+      public Args decode(TProtocol iprot) throws TException {
+        test_endpoint_args test_endpoint_args = new test_endpoint_args();
+        test_endpoint_args.read(iprot);
+        return new Args(test_endpoint_args.getRequest());
+      }
     }
 
     public static class Args implements ThriftStruct {
@@ -119,6 +130,53 @@ public class TestService {
         TestRequest request
       ) {
         this.request = request;
+      }
+    }
+
+    public static class ResultCodec extends ThriftStructCodec3<Result> {
+      @Override
+      public Result decode(TProtocol iprot) throws TException {
+        test_endpoint_result result = new test_endpoint_result();
+        test_endpoint_result.read(iprot);
+        return new Result(test_endpoint_result.getSuccess());
+      }
+
+      @Override
+      public void encode(Result result, TProtocol oprot) throws TException {
+        result.write(oprot);
+      }
+    }
+
+    public static class Result implements ThriftStruct, ThriftResponse {
+      private final Option<Boolean> result;
+
+      public Result(boolean result) {
+        this.result = Option.<Boolean>apply(result);
+      }
+
+      @Override
+      public void write(TProtocol oprot) throws TException {
+        new test_endpoint_result().setSuccess(result.get()).write(oprot);
+      }
+
+      @Override
+      public Option successField() {
+        return success;
+      }
+
+      @Override
+      public Iterable<Option<ThriftException>> exceptionFields() {
+        return WrapAsScala$.MODULE$.asScalaBuffer(new ArrayList<>());
+      }
+
+      @Override
+      public Option<ThriftException> firstException() {
+        for (Option<ThriftException> e : WrapAsJava$.MODULE$.asJavaCollection(exceptionFields())) {
+          if (e.isDefined()) {
+            return e;
+          }
+        }
+        return Option.<ThriftException>apply(null);
       }
     }
   }
@@ -132,6 +190,17 @@ public class TestService {
     private final static String serviceName = "TestService";
 
     public static class ArgsCodec extends ThrfitStructCodec3<Args> {
+      @Override
+      public void encode(Args args, TProtocol oprot) throws TException {
+        args.write(oprot);
+      }
+
+      @Override
+      public Args decode(TProtocol iprot) throws TException {
+        test_oneway_args test_oneway_args = new test_oneway_args();
+        test_oneway_args.read(iprot);
+        return new Args(test_oneway_args.getRequest());
+      }
     }
 
     public static class Args implements ThriftStruct {
@@ -141,6 +210,42 @@ public class TestService {
         TestRequest request
       ) {
         this.request = request;
+      }
+    }
+
+    public static class ResultCodec extends ThriftStructCodec3<Result> {
+      @Override
+      public Result decode(TProtocol iprot) throws TException {
+        test_oneway_result result = new test_oneway_result();
+        test_oneway_result.read(iprot);
+        return new Result(test_oneway_result.getSuccess());
+      }
+
+      @Override
+      public void encode(Result result, TProtocol oprot) throws TException {
+        result.write(oprot);
+      }
+    }
+
+    public static class Result implements ThriftStruct, ThriftResponse {
+      @Override
+      public void write(TProtocol oprot) throws TException {
+        new test_oneway_result().write(oprot);
+      }
+
+      @Override
+      public Iterable<Option<ThriftException>> exceptionFields() {
+        return WrapAsScala$.MODULE$.asScalaBuffer(new ArrayList<>());
+      }
+
+      @Override
+      public Option<ThriftException> firstException() {
+        for (Option<ThriftException> e : WrapAsJava$.MODULE$.asJavaCollection(exceptionFields())) {
+          if (e.isDefined()) {
+            return e;
+          }
+        }
+        return Option.<ThriftException>apply(null);
       }
     }
   }
