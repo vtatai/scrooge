@@ -3,6 +3,14 @@
 {{>type_imports}}
 {{>thrift_imports}}
 
+import com.twitter.scrooge.ThriftException;
+import com.twitter.scrooge.ThriftMethod;
+import com.twitter.scrooge.ThriftResponse;
+import com.twitter.scrooge.ThriftService;
+import com.twitter.scrooge.ThriftStruct;
+import com.twitter.scrooge.ThriftStructCodec3;
+import com.twitter.scrooge.ToThriftService;
+
 import com.twitter.util.Future;
 import com.twitter.util.Function;
 import com.twitter.util.Function2;
@@ -21,7 +29,7 @@ public class {{name}} {
 
   public static abstract class BaseServiceIface implements ToThriftService {
     {{#functions}}
-    private final com.twitter.finagle.Service<{{method.arg}}, {{method.result}}> {{name}};
+    protected final com.twitter.finagle.Service<{{method.arg}}, {{method.result}}> {{name}};
     {{/functions}}
 
     private BaseServiceIface(
@@ -37,9 +45,7 @@ public class {{name}} {
     public ServiceIface(
       {{{base_service_params}}}
     ) {
-      {{#functions}}
-      this.{{name}} = {{name}};
-      {{/functions}}
+      super({{{base_service_args}}});
     }
 
     @Override
@@ -50,13 +56,13 @@ public class {{name}} {
 
   public static class MethodIface implements FutureIface {
     {{#functions}}
-    private com.twitter.finagle.Service<{{method.arg}}, {{method.result}}> {{method.name}}Service;
+    private com.twitter.finagle.Service<{{method.arg}}, {{return_type.type_name_in_container}}> {{method.name}}Service;
     {{/functions}}
 
     @SuppressWarnings("unchecked")
     public MethodIface(final BaseServiceIface serviceIface) {
       {{#functions}}
-      Filter {{method.name}}Filter = ThriftServiceIface.resultFilter({{method.name}}Method);
+      com.twitter.finagle.Filter<{{method.arg}}, {{return_type.type_name_in_container}}, {{method.arg}}, {{method.result}}> {{method.name}}Filter = resultFilter({{method.name}}Method);
       {{method.name}}Service = {{method.name}}Filter.andThen(new com.twitter.finagle.Service<{{method.arg}}, {{method.result}}>() {
         // This service is only needed to adapt the types because of Scala types
         @Override
@@ -84,7 +90,7 @@ public class {{name}} {
     private final static String name = "{{method.name}}";
     private final static String serviceName = "{{serviceName}}";
 
-    public static class ArgsCodec extends ThrfitStructCodec3<Args> {
+    public static class ArgsCodec extends ThriftStructCodec3<Args> {
       @Override
       public void encode(Args args, TProtocol oprot) throws TException {
         args.write(oprot);
@@ -129,10 +135,10 @@ public class {{name}} {
     public static class Result implements ThriftStruct, ThriftResponse {
       {{#return_type}}
       {{^is_oneway_void}}
-      private final Option<{{type_name_in_container}}> result;
+      private final scala.Option<{{type_name_in_container}}> result;
 
       public Result({{type_name}} result) {
-        this.result = Option.<{{type_name_in_container}}>apply(result);
+        this.result = scala.Option.<{{type_name_in_container}}>apply(result);
       }
 
       @Override
@@ -141,8 +147,8 @@ public class {{name}} {
       }
 
       @Override
-      public Option successField() {
-        return success;
+      public scala.Option successField() {
+        return result;
       }
       {{/is_oneway_void}}
       {{#is_oneway_void}}
@@ -154,18 +160,18 @@ public class {{name}} {
       {{/return_type}}
 
       @Override
-      public Iterable<Option<ThriftException>> exceptionFields() {
-        return WrapAsScala$.MODULE$.asScalaBuffer(new ArrayList<>());
+      public scala.collection.Iterable<scala.Option<ThriftException>> exceptionFields() {
+        return scala.collection.convert.WrapAsScala$.MODULE$.asScalaBuffer(new ArrayList<>());
       }
 
       @Override
-      public Option<ThriftException> firstException() {
-        for (Option<ThriftException> e : WrapAsJava$.MODULE$.asJavaCollection(exceptionFields())) {
+      public scala.Option<ThriftException> firstException() {
+        for (scala.Option<ThriftException> e : scala.collection.convert.WrapAsJava$.MODULE$.asJavaCollection(exceptionFields())) {
           if (e.isDefined()) {
             return e;
           }
         }
-        return Option.<ThriftException>apply(null);
+        return scala.Option.<ThriftException>apply(null);
       }
     }
   }
@@ -180,12 +186,6 @@ public class {{name}} {
   public interface AsyncIface{{#extends_iface}} extends {{name}}.AsyncIface{{/extends_iface}} {
     {{#functions}}
     public void {{name}}({{{argument_list_with_types}}}{{#has_args}}, {{/has_args}}AsyncMethodCallback<AsyncClient.{{name}}_call> resultHandler) throws TException;
-    {{/functions}}
-  }
-
-  public interface ServiceIface{{#extends_iface}} extends {{name}}.ServiceIface{{/extends_iface}} {
-    {{#functions}}
-    public Future<{{{return_type.type_name_in_container}}}> {{name}}({{{argument_list_with_types}}});
     {{/functions}}
   }
 
@@ -720,6 +720,39 @@ public class {{name}} {
 
       return fn.apply(iprot, msg.seqid);
     }
+  }
+
+  /**
+   * Reimplementation of ThriftServiceIface.resultFilter in Java.
+   */
+  private static <A, ST, R extends ThriftResponse<ST>> com.twitter.finagle.Filter<A, ST, A, R> resultFilter(final ThriftMethod method) {
+    return new com.twitter.finagle.Filter<A, ST, A, R>() {
+      @Override
+      public Future<ST> apply(A args, com.twitter.finagle.Service<A, R> service) {
+        return service.apply(args).flatMap(new scala.runtime.AbstractFunction1<R, Future<ST>>() {
+          @Override
+          public Future<ST> apply(R response) {
+            scala.Option<ThriftException> thriftExceptionOption = response.firstException();
+            if (thriftExceptionOption.isDefined()) {
+              ThriftException thriftException = thriftExceptionOption.get();
+              if (thriftException instanceof com.twitter.finagle.SourcedException && !method.serviceName().isEmpty()) {
+                ((com.twitter.finagle.SourcedException) thriftException).serviceName_$eq(method.serviceName());
+              }
+              return Future.exception(thriftException);
+            } else {
+              if (response.successField().isDefined()) {
+                return Future.value(response.successField().get());
+              } else {
+                return Future.exception(new TApplicationException(
+                    TApplicationException.MISSING_RESULT,
+                    "Thrift method '" + method.name() + "' failed: missing result"
+                  ));
+              }
+            }
+          }
+        });
+      }
+    };
   }
 
   {{#functions}}
