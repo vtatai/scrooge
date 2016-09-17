@@ -9,9 +9,10 @@ class FunctionController(function: TFunction, generator: ApacheJavaGenerator, ns
   extends BaseController(generator, ns) {
   val return_type = new FieldTypeController(function.funcType, generator)
   val name = function.funcName.name
-  val argument_list = function.args map { a =>
+  val arguments = function.args map { a =>
     a.sid.name
-  } mkString ", "
+  }
+  val argument_list = arguments mkString ", "
   val argument_list_with_types = function.args map { a =>
     generator.typeName(a.fieldType) + " " + a.sid.name
   } mkString ", "

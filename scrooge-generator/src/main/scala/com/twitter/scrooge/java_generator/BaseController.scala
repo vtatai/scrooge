@@ -43,6 +43,8 @@ class BaseController(generator: ApacheJavaGenerator, ns: Option[Identifier]) {
 
   val isset_field_id = newHelper { fieldName => "__" + fieldName.toUpperCase + "_ISSET_ID" }
 
+  val spaces_to_commas = newHelper { input => input.split(" +").mkString(", ") }
+
   def i_2 = newHelper { input =>
     indent(input, 2)
   }

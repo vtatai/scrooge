@@ -3,22 +3,28 @@
 {{>type_imports}}
 {{>thrift_imports}}
 
+import com.twitter.finagle.thrift.DeserializeCtx;
+import com.twitter.finagle.thrift.ThriftClientRequest;
+
 import com.twitter.scrooge.ThriftException;
 import com.twitter.scrooge.ThriftMethod;
 import com.twitter.scrooge.ThriftResponse;
 import com.twitter.scrooge.ThriftService;
 import com.twitter.scrooge.ThriftStruct;
+import com.twitter.scrooge.ThriftStructCodec;
 import com.twitter.scrooge.ThriftStructCodec3;
 import com.twitter.scrooge.ToThriftService;
 
+import com.twitter.util.ConstFuture;
 import com.twitter.util.Future;
 import com.twitter.util.Function;
 import com.twitter.util.Function2;
 import com.twitter.util.Try;
 import com.twitter.util.Return;
 import com.twitter.util.Throw;
-import com.twitter.finagle.thrift.DeserializeCtx;
-import com.twitter.finagle.thrift.ThriftClientRequest;
+
+import scala.Function1;
+import scala.runtime.AbstractFunction1;
 
 public class {{name}} {
   public interface FutureIface extends ThriftService {
@@ -100,7 +106,11 @@ public class {{name}} {
       public Args decode(TProtocol iprot) throws TException {
         {{name}}_args {{name}}_args = new {{name}}_args();
         {{name}}_args.read(iprot);
-        return new Args({{name}}_args.getRequest());
+        return new Args(
+          {{#arguments}}
+          {{name}}_args.get{{#cap}}{{.}}{{/cap}}()
+          {{/arguments}}
+        );
       }
     }
 
@@ -116,14 +126,23 @@ public class {{name}} {
         this.{{name}} = {{name}};
         {{/fields}}
       }
+
+      @Override
+      public void write(TProtocol oprot) throws TException {
+        new {{name}}_args()
+          {{#fields}}
+          .set{{#cap}}{{name}}{{/cap}}({{name}})
+          {{/fields}}
+          .write(oprot);
+      }
     }
 
     public static class ResultCodec extends ThriftStructCodec3<Result> {
       @Override
       public Result decode(TProtocol iprot) throws TException {
         {{name}}_result result = new {{name}}_result();
-        {{name}}_result.read(iprot);
-        return new Result({{name}}_result.getSuccess());
+        result.read(iprot);
+        return new Result(result.getSuccess());
       }
 
       @Override
@@ -174,297 +193,155 @@ public class {{name}} {
         return scala.Option.<ThriftException>apply(null);
       }
     }
+
+    @Override
+    public Object functionToService(Object f) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Object serviceToFunction(Object svc) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String name() {
+      return name;
+    }
+
+    @Override
+    public String serviceName() {
+      return serviceName;
+    }
+
+    @Override
+    public ThriftStructCodec3 argsCodec() {
+      return argsCodec;
+    }
+
+    @Override
+    public ThriftStructCodec3 responseCodec() {
+      return resultCodec;
+    }
+
+    @Override
+    public boolean oneway() {
+      return false;
+    }
   }
   {{/functions}}
 
-  public interface Iface{{#extends_iface}} extends {{name}}.Iface{{/extends_iface}} {
-    {{#functions}}
-    public {{{return_type.type_name}}} {{name}}({{{argument_list_with_types}}}) throws {{exceptions_string}}TException;
-    {{/functions}}
-  }
-
-  public interface AsyncIface{{#extends_iface}} extends {{name}}.AsyncIface{{/extends_iface}} {
-    {{#functions}}
-    public void {{name}}({{{argument_list_with_types}}}{{#has_args}}, {{/has_args}}AsyncMethodCallback<AsyncClient.{{name}}_call> resultHandler) throws TException;
-    {{/functions}}
-  }
-
-  public static class Client{{#extends_iface}} extends {{name}}.Client{{/extends_iface}} implements TServiceClient, Iface {
-    public static class Factory implements TServiceClientFactory<Client> {
-      public Factory() {}
-      public Client getClient(TProtocol prot) {
-        return new Client(prot);
-      }
-      public Client getClient(TProtocol iprot, TProtocol oprot) {
-        return new Client(iprot, oprot);
-      }
-    }
-
-    public Client(TProtocol prot)
-    {
-      this(prot, prot);
-    }
-
-    public Client(TProtocol iprot, TProtocol oprot)
-    {
-      {{#extends_iface}}
-      super(iprot, oprot);
-      {{/extends_iface}}
-      {{^extends_iface}}
-      iprot_ = iprot;
-      oprot_ = oprot;
-      {{/extends_iface}}
-    }
-    {{^extends_iface}}
-
-    protected TProtocol iprot_;
-    protected TProtocol oprot_;
-
-    protected int seqid_;
-
-    public TProtocol getInputProtocol()
-    {
-      return this.iprot_;
-    }
-
-    public TProtocol getOutputProtocol()
-    {
-      return this.oprot_;
-    }
-
-    {{/extends_iface}}
-    {{#functions}}
-    public {{{return_type.type_name}}} {{name}}({{{argument_list_with_types}}}) throws {{exceptions_string}}TException
-    {
-      send_{{name}}({{{argument_list}}});
-      {{^is_oneway}}
-      {{^return_type.is_void}}return {{/return_type.is_void}}recv_{{name}}();
-      {{/is_oneway}}
-    }
-
-    public void send_{{name}}({{{argument_list_with_types}}}) throws TException
-    {
-      oprot_.writeMessageBegin(new TMessage("{{name}}", TMessageType.CALL, ++seqid_));
-      {{name}}_args __args__ = new {{name}}_args();
-      {{#fields}}
-      __args__.set{{#cap}}{{name}}{{/cap}}({{name}});
-      {{/fields}}
-      __args__.write(oprot_);
-      oprot_.writeMessageEnd();
-      oprot_.getTransport().flush();
-    }
-    {{^is_oneway}}
-
-    public {{{return_type.type_name}}} recv_{{name}}() throws {{exceptions_string}}TException
-    {
-      TMessage msg = iprot_.readMessageBegin();
-      if (msg.type == TMessageType.EXCEPTION) {
-        TApplicationException x = TApplicationException.read(iprot_);
-        iprot_.readMessageEnd();
-        throw x;
-      }
-      if (msg.seqid != seqid_) {
-        throw new TApplicationException(TApplicationException.BAD_SEQUENCE_ID, "{{name}} failed: out of sequence response");
-      }
-      {{name}}_result result = new {{name}}_result();
-      result.read(iprot_);
-      iprot_.readMessageEnd();
-      {{^return_type.is_void}}
-      if (result.isSetSuccess()) {
-        return result.success;
-      }
-      {{/return_type.is_void}}
-      {{#exceptions}}
-      if (result.{{name}} != null) {
-        throw result.{{name}};
-      }
-      {{/exceptions}}
-      {{#return_type.is_void}}
-      return;
-      {{/return_type.is_void}}
-      {{^return_type.is_void}}
-      throw new TApplicationException(TApplicationException.MISSING_RESULT, "{{name}} failed: unknown result");
-      {{/return_type.is_void}}
-    }
-    {{/is_oneway}}
-    {{/functions}}
-  }
-
-  public static class AsyncClient extends {{#extends_iface}}{{name}}.AsyncClient{{/extends_iface}}{{^extends_iface}}TAsyncClient{{/extends_iface}} implements AsyncIface {
-    public static class Factory implements TAsyncClientFactory<AsyncClient> {
-      private final TAsyncClientManager clientManager;
-      private final TProtocolFactory protocolFactory;
-      public Factory(TAsyncClientManager clientManager, TProtocolFactory protocolFactory) {
-        this.clientManager = clientManager;
-        this.protocolFactory = protocolFactory;
-      }
-      public AsyncClient getAsyncClient(TNonblockingTransport transport) {
-        return new AsyncClient(protocolFactory, clientManager, transport);
-      }
-    }
-
-    public AsyncClient(TProtocolFactory protocolFactory, TAsyncClientManager clientManager, TNonblockingTransport transport) {
-      super(protocolFactory, clientManager, transport);
-    }
-
-    {{#functions}}
-    public void {{name}}({{{argument_list_with_types}}}{{#has_args}}, {{/has_args}}AsyncMethodCallback<{{name}}_call> __resultHandler__) throws TException {
-      checkReady();
-      {{name}}_call __method_call__ = new {{name}}_call({{{argument_list}}}{{#has_args}}, {{/has_args}}__resultHandler__, this, super.protocolFactory, super.transport);
-      manager.call(__method_call__);
-    }
-
-    public static class {{name}}_call extends TAsyncMethodCall {
-      {{#fields}}
-      private {{{field_type.type_name}}} {{name}};
-      {{/fields}}
-
-      public {{name}}_call({{{argument_list_with_types}}}{{#has_args}}, {{/has_args}}AsyncMethodCallback<{{name}}_call> __resultHandler__, TAsyncClient __client__, TProtocolFactory __protocolFactory__, TNonblockingTransport __transport__) throws TException {
-        super(__client__, __protocolFactory__, __transport__, __resultHandler__, {{#is_oneway}}true{{/is_oneway}}{{^is_oneway}}false{{/is_oneway}});
-        {{#fields}}
-        this.{{name}} = {{name}};
-        {{/fields}}
-      }
-
-      public void write_args(TProtocol __prot__) throws TException {
-        __prot__.writeMessageBegin(new TMessage("{{name}}", TMessageType.CALL, 0));
-        {{name}}_args __args__ = new {{name}}_args();
-        {{#fields}}
-        __args__.set{{#cap}}{{name}}{{/cap}}({{name}});
-        {{/fields}}
-        __args__.write(__prot__);
-        __prot__.writeMessageEnd();
-      }
-
-      public {{{return_type.type_name}}} getResult() throws {{exceptions_string}}TException {
-        if (getState() != State.RESPONSE_READ) {
-          throw new IllegalStateException("Method call not finished!");
-        }
-        TMemoryInputTransport __memoryTransport__ = new TMemoryInputTransport(getFrameBuffer().array());
-        TProtocol __prot__ = super.client.getProtocolFactory().getProtocol(__memoryTransport__);
-        {{^is_oneway}}
-        {{^return_type.is_void}}return {{/return_type.is_void}}(new Client(__prot__)).recv_{{name}}();
-        {{/is_oneway}}
-      }
-     }
-   {{/functions}}
-   }
-
-
-  public static class ServiceToClient{{#extends_iface}} extends {{name}}.ServiceToClient{{/extends_iface}} implements ServiceIface {
-    private final com.twitter.finagle.Service<ThriftClientRequest, byte[]> service;
+  public static class FinagledClient implements FutureIface {
+    private final com.twitter.finagle.Service<com.twitter.finagle.thrift.ThriftClientRequest, byte[]> service;
     private final TProtocolFactory protocolFactory;
-    {{^is_oneway}}
-    private final scala.PartialFunction<com.twitter.finagle.service.ReqRep,com.twitter.finagle.service.ResponseClass> responseClassifier;
+    private final String serviceName;
+    private final com.twitter.finagle.stats.StatsReceiver statsReceiver;
+    private final scala.PartialFunction<com.twitter.finagle.service.ReqRep, com.twitter.finagle.service.ResponseClass> responseClassifier;
 
-    public ServiceToClient(com.twitter.finagle.Service<ThriftClientRequest, byte[]> service, TProtocolFactory protocolFactory, scala.PartialFunction<com.twitter.finagle.service.ReqRep,com.twitter.finagle.service.ResponseClass> responseClassifier) {
-      {{#extends_iface}}super(service, protocolFactory, responseClassifier);{{/extends_iface}}
+    public FinagledClient(com.twitter.finagle.Service<com.twitter.finagle.thrift.ThriftClientRequest, byte[]> service, TProtocolFactory protocolFactory,
+        String serviceName, com.twitter.finagle.stats.StatsReceiver statsReceiver,
+        scala.PartialFunction<com.twitter.finagle.service.ReqRep, com.twitter.finagle.service.ResponseClass> responseClassifier) {
       this.service = service;
       this.protocolFactory = protocolFactory;
+      this.serviceName = serviceName;
+      this.statsReceiver = statsReceiver;
       this.responseClassifier = responseClassifier;
     }
-    {{/is_oneway}}
 
-    public ServiceToClient(com.twitter.finagle.Service<ThriftClientRequest, byte[]> service, TProtocolFactory protocolFactory) {
-      {{#extends_iface}}super(service, protocolFactory, com.twitter.finagle.service.ResponseClassifier.Default());{{/extends_iface}}
-      this.service = service;
-      this.protocolFactory = protocolFactory;
-      {{^is_oneway}}this.responseClassifier = com.twitter.finagle.service.ResponseClassifier.Default();{{/is_oneway}}
+    public com.twitter.finagle.thrift.ThriftClientRequest encodeRequest(String name, ThriftStruct args) throws TException {
+      TMemoryBuffer buf = new TMemoryBuffer(512);
+      TProtocol oprot_ = protocolFactory.getProtocol(buf);
+      oprot_.writeMessageBegin(new TMessage(name, TMessageType.CALL, 0));
+      args.write(oprot_);
+      oprot_.writeMessageEnd();
+      oprot_.getTransport().flush();
+      byte[] bytes = Arrays.copyOfRange(buf.getArray(), 0, buf.length());
+      return new com.twitter.finagle.thrift.ThriftClientRequest(bytes, false);
     }
 
-    {{#functions}}
-    public Future<{{{return_type.type_name_in_container}}}> {{name}}({{{argument_list_with_types}}}) {
+    protected <T extends ThriftStruct> T decodeResponse(byte[] resBytes, ThriftStructCodec<T> codec) throws TException {
+      TProtocol iprot = protocolFactory.getProtocol(new TMemoryInputTransport(resBytes));
+      TMessage msg = iprot.readMessageBegin();
+
       try {
-        // TODO: size
-        TMemoryBuffer __memoryTransport__ = new TMemoryBuffer(512);
-        TProtocol __prot__ = this.protocolFactory.getProtocol(__memoryTransport__);
-        __prot__.writeMessageBegin(new TMessage("{{name}}", TMessageType.CALL, 0));
-        {{name}}_args __args__ = new {{name}}_args();
-        {{#fields}}
-        __args__.set{{#cap}}{{name}}{{/cap}}({{name}});
-        {{/fields}}
-        __args__.write(__prot__);
-        __prot__.writeMessageEnd();
-
-
-        byte[] __buffer__ = Arrays.copyOfRange(__memoryTransport__.getArray(), 0, __memoryTransport__.length());
-        final ThriftClientRequest __request__ = new ThriftClientRequest(__buffer__, {{#is_oneway}}true{{/is_oneway}}{{^is_oneway}}false{{/is_oneway}});
-
-        {{^is_oneway}}
-        Function<byte[], com.twitter.util.Try<{{{return_type.type_name_in_container}}}>> replyDeserializer =
-          new Function<byte[], com.twitter.util.Try<{{{return_type.type_name_in_container}}}>>() {
-            public com.twitter.util.Try<{{{return_type.type_name_in_container}}}> apply(byte[] __buffer__) {
-              TMemoryInputTransport __memoryTransport__ = new TMemoryInputTransport(__buffer__);
-              TProtocol __prot__ = ServiceToClient.this.protocolFactory.getProtocol(__memoryTransport__);
-              try {
-                {{#is_oneway_or_void}}
-                (new Client(__prot__)).recv_{{name}}();
-                return new com.twitter.util.Return(null);
-                {{/is_oneway_or_void}}
-                {{^is_oneway_or_void}}
-                return new com.twitter.util.Return(((new Client(__prot__)).recv_{{name}}()));
-                {{/is_oneway_or_void}}
-              } catch (Exception e) {
-                return new com.twitter.util.Throw(e);
-              }
-            }
-          };
-        DeserializeCtx serdeCtx = new DeserializeCtx<{{{return_type.type_name_in_container}}}>(__args__, replyDeserializer);
-
-        return com.twitter.finagle.context.Contexts.local().let(
-          DeserializeCtx.Key(),
-          serdeCtx,
-          new com.twitter.util.Function0<Future<{{{return_type.type_name_in_container}}}>>() {
-            public Future<{{{return_type.type_name_in_container}}}> apply() {
-
-              Future<byte[]> __done__ = service.apply(__request__);
-              return __done__.flatMap(new Function<byte[], Future<{{{return_type.type_name_in_container}}}>>() {
-                public Future<{{{return_type.type_name_in_container}}}> apply(byte[] __buffer__) {
-                  TMemoryInputTransport __memoryTransport__ = new TMemoryInputTransport(__buffer__);
-                  TProtocol __prot__ = ServiceToClient.this.protocolFactory.getProtocol(__memoryTransport__);
-                  try {
-                    {{#is_oneway_or_void}}
-                    (new Client(__prot__)).recv_{{name}}();
-                    return Future.value(null);
-                    {{/is_oneway_or_void}}
-                    {{^is_oneway_or_void}}
-                    return Future.value((new Client(__prot__)).recv_{{name}}());
-                   {{/is_oneway_or_void}}
-                  } catch (Exception e) {
-                    return Future.exception(e);
-                  }
-                }
-              });
-            }
-          });
-          {{/is_oneway}}
-          {{#is_oneway}}
-          Future<byte[]> __done__ = this.service.apply(__request__);
-          return __done__.flatMap(new Function<byte[], Future<{{{return_type.type_name_in_container}}}>>() {
-            public Future<{{{return_type.type_name_in_container}}}> apply(byte[] __buffer__) {
-              TMemoryInputTransport __memoryTransport__ = new TMemoryInputTransport(__buffer__);
-              TProtocol __prot__ = ServiceToClient.this.protocolFactory.getProtocol(__memoryTransport__);
-              try {
-                {{#is_oneway_or_void}}
-                {{^is_oneway}}
-                (new Client(__prot__)).recv_{{name}}();
-                {{/is_oneway}}
-                return Future.value(null);
-                {{/is_oneway_or_void}}
-                {{^is_oneway_or_void}}
-                return Future.value((new Client(__prot__)).recv_{{name}}());
-               {{/is_oneway_or_void}}
-              } catch (Exception e) {
-                return Future.exception(e);
-              }
-            }
-          });
-          {{/is_oneway}}
-      } catch (TException e) {
-        return Future.exception(e);
+        if (msg.type == TMessageType.EXCEPTION) {
+          TApplicationException x = TApplicationException.read(iprot);
+          iprot.readMessageEnd();
+          throw x;
+        }
+        return codec.decode(iprot);
+      } finally {
+        iprot.readMessageEnd();
       }
     }
-    {{/functions}}
+
+    @Override
+    public Future<String> ping(String message) {
+//      __stats_ping.RequestsCounter.incr()
+      Ping.Args inputArgs = new Ping.Args(message);
+      scala.Function1<byte[], Try<String>> replyDeserializer = new scala.runtime.AbstractFunction1<byte[], Try<String>>() {
+        @Override
+        public Try<String> apply(byte[] response) {
+          try {
+            Ping.Result result = decodeResponse(response, Ping.resultCodec);
+            if(result.success.isDefined()) {
+              return new Return<>(result.success.get());
+            } else {
+              return new Throw(missingResult("ping"));
+            }
+          } catch (TException e) {
+            return new Throw(e);
+          }
+        }
+      };
+
+      DeserializeCtx<String> serdeCtx = new DeserializeCtx<>(inputArgs, replyDeserializer);
+      ThriftClientRequest serialized;
+      try {
+        serialized = encodeRequest("ping", inputArgs);
+      } catch (TException e) {
+        throw new RuntimeException(e);
+      }
+      Future<String> flatMap = this.service.apply(serialized)
+              .flatMap(new scala.runtime.AbstractFunction1<byte[], Future<String>>() {
+                @Override
+                public Future<String> apply(byte[] response) {
+                  return new ConstFuture<>(serdeCtx.deserialize(response));
+                }
+              });
+      Future<String> respond = flatMap.respond(new AbstractFunction1<Try<String>, scala.runtime.BoxedUnit>() {
+        @Override
+        public scala.runtime.BoxedUnit apply(Try<String> response) {
+          com.twitter.finagle.service.ResponseClass responseClass = responseClassifier.applyOrElse(
+                  new ReqRep(inputArgs, (Try) response),
+                  com.twitter.finagle.service.ResponseClassifier.Default());
+          if (responseClass instanceof com.twitter.finagle.service.ResponseClass.Successful) {
+//                  SuccessCounter.incr();
+          } else if (responseClass instanceof com.twitter.finagle.service.ResponseClass.Failed) {
+//                  __stats_ping.FailuresCounter.incr();
+            if (response instanceof Throw) {
+              setServiceName(((Throw) response).e());
+//                    __stats_ping.FailuresScope.counter(Throwables.mkString(ex):_ *).incr();
+            }
+          }
+          return null;
+        }
+      });
+      return respond;
+    }
+
+    protected TApplicationException missingResult(String name) {
+      return new TApplicationException(
+              TApplicationException.MISSING_RESULT,
+              name + " failed: unknown result");
+    }
+
+    protected Throwable setServiceName(Throwable ex) {
+      if (this.serviceName != "" && ex instanceof com.twitter.finagle.SourcedException) {
+        ((com.twitter.finagle.SourcedException) ex).serviceName_$eq(this.serviceName);
+      }
+      return ex;
+    }
   }
 
   public static class Processor{{#extends_iface}} extends {{name}}.Processor{{/extends_iface}} implements TProcessor {
@@ -567,13 +444,13 @@ public class {{name}} {
     {{/functions}}
   }
 
-  public static class Service {{#extends_iface}}extends {{name}}.Service{{/extends_iface}}{{^extends_iface}}extends com.twitter.finagle.Service<byte[], byte[]>{{/extends_iface}} {
-    private final ServiceIface iface;
+  public static class FinagleService {{#extends_iface}}extends {{name}}.Service{{/extends_iface}}{{^extends_iface}}extends com.twitter.finagle.Service<byte[], byte[]>{{/extends_iface}} {
+    private final FutureIface iface;
     private final TProtocolFactory protocolFactory;
     {{^extends_iface}}
     protected HashMap<String, Function2<TProtocol, Integer, Future<byte[]>>> functionMap = new HashMap<String, Function2<TProtocol, Integer, Future<byte[]>>>();
     {{/extends_iface}}
-    public Service(final ServiceIface iface, final TProtocolFactory protocolFactory) {
+    public FinagleService(final FutureIface iface, final TProtocolFactory protocolFactory) {
       {{#extends_iface}}
       super(iface, protocolFactory);
       {{/extends_iface}}
